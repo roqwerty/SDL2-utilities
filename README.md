@@ -8,7 +8,7 @@ A small collection of personally useful SDL2 libraries.
 This file defines a master SDL class that handles things such as window creation, easy surface and texture loading, and FPS control.
 
 ### SDL_text_wrapper.h
-This file defines a Terminal class that provides console-like text handling and storage, as well as the SDL_Text namespace that lets the user create SDL2 textures from lines or blocks of text using the open-source pixel monogram font.
+This file defines a Terminal class that provides console-like text handling and storage, as well as the SDL_Text namespace that lets the user create SDL2 textures from lines or blocks of text using the open-source pixel monogram font as defined in the neighboring monogram.png file.
 ###### This file is not uploaded yet :(
 
 ### CRT_filter.h
