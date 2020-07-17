@@ -12,5 +12,6 @@ This file defines a Terminal class that provides console-like text handling and 
 ###### This file is not uploaded yet :(
 
 ### CRT_filter.h
-This file creates the CRT namespace, housing a collection of visual filters for SDL2 textures to mimic various effects of a CRT monitor such as screen curvature, chromatic aberration, and scanlines. Currently, the CRT bending effect is ridiculously computationally intensive. Use at own risk.
+This file creates the CRT namespace, housing a collection of visual filters for SDL2 textures to mimic various effects of a CRT monitor such as screen curvature, chromatic aberration, and scanlines.
+>Currently, the CRT screen curvature / bending effect is ridiculously computationally intensive. Use at own risk.
 ###### This file is not uploaded yet :(
