@@ -13,6 +13,8 @@ Changelog:
             FUTURE: Protect these and use getWidth() and getHeight() functions to access members, as they are no longer immutable constants
         Added newBlankTexture(int width, int height)
             Returns a new, optimized blank texture based on the size parameters passed in to the function
+        Added multiplyTextureSize(SDL_Texture* sourceTexture, int scale, bool destructive = false)
+            Returns a new texture that is actually the passed texture with dimensions multiplied by the scale factor. If destructive, destroys the old texture as well
     -Old-
         SDL wrapper class exists that contains many useful features, such as:
             An SDL_Window* and SDL_Renderer*, named window and renderer, respectively
@@ -47,6 +49,7 @@ public:
     SDL_Texture* loadTexture(std::string filepath); // Loads the given filepath as an optimized texture
     SDL_Surface* loadSurface(std::string filepath); // Loads and returns a surface from a filepath
     SDL_Texture* newBlankTexture(int width, int height); // Creates and returns a new, optimized, blank texture of the given size
+    SDL_Texture* multiplyTextureSize(SDL_Texture* sourceTexture, int scale, bool destructive = false); // Returns a new texture, scaled by the given constant
     void FPSinit(int framesPerSecond); // Starts the FPS submodule and caps framerate at a given number
     void FPSlog(); // Pauses the game until a given framerate is reached
     //SDL_Texture* mergeTexture(SDL_Texture* t1, int t1_pos[2], SDL_Texture* t2, int t2_pos[2]); // Merges both textures onto a 32x32 texture to return
@@ -117,6 +120,32 @@ SDL_Surface* loadSurface(std::string filepath)
 SDL_Texture* SDL::newBlankTexture(int width, int height)
 {
     return SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, width, height);
+}
+
+SDL_Texture* SDL::multiplyTextureSize(SDL_Texture* sourceTexture, int scale, bool destructive)
+{
+    // Multiplies the dimension of the existing sourceTexture and returns.
+    // If destructive, destroys the old source texture
+
+    // Make a rect of the needed size
+    SDL_Rect rect = {0, 0, 0, 0};
+    SDL_QueryTexture(sourceTexture, NULL, NULL, &rect.w, &rect.h);
+    rect.w *= scale;
+    rect.h *= scale;
+
+    // Copy the texture to a new texture of the needed size, deleting the old one if needed
+    SDL_Texture* holdTexture = newBlankTexture(rect.w, rect.h); //SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, rect.w, rect.h);
+    SDL_SetRenderTarget(renderer, holdTexture);
+    SDL_SetTextureBlendMode(holdTexture, SDL_BLENDMODE_BLEND);
+    SDL_RenderCopy(renderer, sourceTexture, NULL, &rect);
+    SDL_SetRenderTarget(renderer, NULL);
+
+    if (destructive)
+    {
+        SDL_DestroyTexture(sourceTexture);
+    }
+
+    return holdTexture;
 }
 
 void SDL::clear()
