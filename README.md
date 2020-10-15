@@ -5,7 +5,7 @@ A small collection of personally useful SDL2 libraries.
 
 
 ### SDL_wrapper
-This file defines a master SDL class that handles things such as window creation, easy surface and texture loading, and FPS control.
+This file defines a master SDL class that handles things such as window creation, fullscreen toggling, easy surface and texture loading, and FPS control.
 
 ### SDL_text_wrapper
 This file defines a Terminal class that provides console-like text handling and storage, as well as the SDL_Text namespace that lets the user create SDL2 textures from lines or blocks of text using the open-source pixel monogram font as defined in the neighboring monogram.png file.
