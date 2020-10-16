@@ -12,6 +12,7 @@
 Changelog:
     -1.1-
         Added toggleFullscreen() function
+        Added saveTextureToFile() function
     -1.0-
         Implemented versioning system
         SDL constructor now allows for explicit width/height assignment at instance creation
@@ -61,6 +62,7 @@ public:
     void FPSinit(int framesPerSecond); // Starts the FPS submodule and caps framerate at a given number
     void FPSlog(); // Pauses the game until a given framerate is reached
     void toggleFullscreen(); // Toggles fullscreen of this SDL
+    void saveTextureToFile(std::string filepath, SDL_Texture* texture); // Saves the given texture to file as a PNG
     //SDL_Texture* mergeTexture(SDL_Texture* t1, int t1_pos[2], SDL_Texture* t2, int t2_pos[2]); // Merges both textures onto a 32x32 texture to return
 };
 
@@ -71,7 +73,7 @@ SDL::SDL(int width, int height)
     WIDTH = width;
     HEIGHT = height;
     //Create window
-    window = SDL_CreateWindow("Ex Gaea", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
+    window = SDL_CreateWindow("Alchemy Visualizer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
     //surface = SDL_GetWindowSurface(window);
@@ -228,6 +230,21 @@ void SDL::toggleFullscreen()
 		SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
 	}
     // Anything that needs to be done if resolution changes can go here
+}
+
+void SDL::saveTextureToFile(std::string filepath, SDL_Texture* texture)
+{
+    // Saves a texture to file as a png.
+    //Source: https://stackoverflow.com/questions/34255820/save-sdl-texture-to-file
+    SDL_Texture* target = SDL_GetRenderTarget(renderer);
+    SDL_SetRenderTarget(renderer, texture);
+    int width, height;
+    SDL_QueryTexture(texture, NULL, NULL, &width, &height);
+    SDL_Surface* surface = SDL_CreateRGBSurface(0, width, height, 32, 0, 0, 0, 0);
+    SDL_RenderReadPixels(renderer, NULL, surface->format->format, surface->pixels, surface->pitch);
+    IMG_SavePNG(surface, filepath.c_str());
+    SDL_FreeSurface(surface);
+    SDL_SetRenderTarget(renderer, target);
 }
 
 /* Currently unused, opted to just blit all to the screen at different positions instead (allowed for actual subpixel movement)
