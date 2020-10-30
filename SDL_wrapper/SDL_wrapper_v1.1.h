@@ -11,6 +11,7 @@
 /*
 Changelog:
     -1.1-
+        Added relevant error messages when a loaded texture/surface cannot be found
         Added toggleFullscreen() function
         Added saveTextureToFile() function
     -1.0-
@@ -73,7 +74,7 @@ SDL::SDL(int width, int height)
     WIDTH = width;
     HEIGHT = height;
     //Create window
-    window = SDL_CreateWindow("Alchemy Visualizer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
+    window = SDL_CreateWindow("Ex Gaea", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
     //surface = SDL_GetWindowSurface(window);
@@ -95,6 +96,10 @@ SDL::~SDL()
 SDL_Texture* SDL::loadTexture(std::string filepath)
 {
     SDL_Surface* loadedSurface = IMG_Load(filepath.c_str());
+    if (loadedSurface == NULL)
+    {
+        printf("Unable to load image %s! SDL_image Error: %s\n", filepath.c_str(), IMG_GetError());
+    }
     SDL_Texture* newTexture = SDL_CreateTextureFromSurface(renderer, loadedSurface);
     SDL_FreeSurface(loadedSurface);
     return newTexture;
