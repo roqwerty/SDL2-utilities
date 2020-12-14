@@ -4,7 +4,7 @@
 #include <SDL2/SDL.h> //For SDL...
 #include <map> // For maps (dictionaries)
 #include "SDL_wrapper_v1.1.h" // For loading / using optimized textures
-#include "Universals.h" // For various things, including points
+//#include "Universals.h" // For various things, including points
 
 /*
 This file allows writing of texture objects from a string input
@@ -17,6 +17,29 @@ ABCDEFGHIJKLMNOPQRSTUVWXYZ
 abcdefghijklmnopqrstuvwxyz
 1234567890+-=/\*:;()[]{}<>
 !?.,'"&�#%^~�`|�$�����@��_
+*/
+
+/// VERSION 0.5
+/*
+Changelog:
+    -0.5-
+        Made everything use SDL_Points for, well, points. Removes dependency on old file
+        Made writeLine and writeBlock pass strings by reference, because it's better memory management
+        writeBlock is now no longer recursive and MUCH faster. Still not super 60FPS fast with large texts, but should be fine for occasional calls (i.e. not every frame)
+        fixed Terminal adding a newline to the beginning of its body when printLine() was called after a clear()
+        Added SDL_Text functions
+            int countLines(const std::string& block) - Returns the total numer of lines the text is (1, +1 for every newline)
+            int getMaximumLineLength(const std::string& block) - Returns the length of the longest line in the block
+    -Old-
+        Terminal class with support for maximum lines, line rewriting, blanking, and more.
+            clear() - Clears the text of the terminal
+            setText(std::string text) - Sets the text of the terminal to text
+            printLine(std::string line) - Adds the line of text to the bottom of the terminal. Erases top line if there is not room
+            updateLastLine(std::string line) - Changes the last line of the terminal to be the given text
+        SDL_Text namespace with SDL2 texture support. Location of "monogram.png" must be hardcoded
+            init(SDL* sdl) - MUST BE CALLED FIRST. This sets up the namespace with the declaration of an SDL elsewhere in the program
+            writeLine(std::string text) - Turns a std::string into a SDL_Texture*. Returns the pointer to the texture
+            writeBlock(std::string block) - Turns an std::string into a block of SDL_Texture*. Recognizes newlines. As of right now, is recursive and slow
 */
 
 // Set up the map (dictionary) for point lookup
@@ -136,7 +159,7 @@ class Terminal
 {
     // Holds some text and when more new lines are added than can be held (in maxLines), deletes the topmost line
 public:
-    std::string body;
+    std::string body = "";
     int maxLines = 0;
     int currentlyUsedLines = 0;
 
@@ -170,7 +193,12 @@ public:
     void printLine(std::string line)
     {
         // Prints a new line to the terminal. If there are too many lines, removes the topmost one
-        if (currentlyUsedLines < maxLines) // There is open room
+        if (currentlyUsedLines == 0) // This is the first line, don't add a newline at the top
+        {
+            body = line;
+            currentlyUsedLines = 1;
+        }
+        else if (currentlyUsedLines < maxLines) // There is open room
         {
             body = body + "\n" + line;
             currentlyUsedLines++;
@@ -213,7 +241,7 @@ public:
 namespace SDL_Text
 {
     /// Variables
-    std::string fontpath = "monogram.png";
+    std::string fontpath = "data/monogram.png";
     SDL_Texture* font = nullptr;
     // Uses the popular and open-source monogram font as a base
     const int CHAR_HEIGHT = 9;
@@ -231,7 +259,39 @@ namespace SDL_Text
         font = sdl->loadTexture(fontpath);
     }
 
-    SDL_Texture* writeLine (std::string line)
+    int countLines(const std::string& block)
+    {
+        // Counts the number of lines of text in a referenced string
+        int count = 1; // One line by default
+        for (char c : block)
+        {
+            if (c == '\n') {count++;}
+        }
+        return count;
+    }
+
+    int getMaximumLineLength(const std::string& block)
+    {
+        // Returns the length of the longest line in the block of text. Counts spaces and special characters
+        int longest = 0;
+        int current = 0;
+        for (char c : block)
+        {
+            if (c == '\n')
+            {
+                if (current > longest) {longest = current;}
+                current = 0;
+            }
+            else
+            {
+                current++;
+            }
+        }
+        if (current > longest) {longest = current;}
+        return longest;
+    }
+
+    SDL_Texture* writeLine (const std::string& line)
     {
         // Turns text into a texture. Also adds a pixel of space in between characters
         // Source and destination rectangles
@@ -245,8 +305,12 @@ namespace SDL_Text
         int width = line.length() * CHAR_WIDTH + line.length() - 1; // For space in between chars (1 for each char, minus one after last char)
         SDL_Texture* lineTexture = SDL_CreateTexture(sdl->renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, width, CHAR_HEIGHT);
         SDL_SetRenderTarget(sdl->renderer, lineTexture);
-        SDL_SetRenderDrawBlendMode(sdl->renderer, SDL_BLENDMODE_BLEND);
-        SDL_SetTextureBlendMode(lineTexture, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawBlendMode(sdl->renderer, SDL_BLENDMODE_NONE);
+        SDL_SetTextureBlendMode(lineTexture, SDL_BLENDMODE_NONE);
+        // Make explicitly all transparent to fix beraking on some gpu / monitor setups
+        SDL_SetRenderDrawColor(sdl->renderer, 0, 0, 0, 0);
+        SDL_Rect fullRect = {0, 0, width, CHAR_HEIGHT};
+        SDL_RenderFillRect(sdl->renderer, &fullRect); // Fills the entire texture with transparent
 
         // Iterate through the letters, writing to texture
         for (int i = 0; i < line.length(); i++)
@@ -267,14 +331,71 @@ namespace SDL_Text
         // Cleanup and return
         SDL_SetRenderTarget(sdl->renderer, NULL);
         SDL_SetRenderDrawBlendMode(sdl->renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureBlendMode(lineTexture, SDL_BLENDMODE_BLEND);
         return lineTexture;
         // NOTE use SDL_QueryTexture to find a rect the same size as this texture!
     }
 
-    SDL_Texture* writeBlock (std::string block)
+    SDL_Texture* writeBlock (const std::string& block)
     {
         // Writes a block of text a single line at a time.
         // Uses the newline '\n' character to separate lines
+
+        // Variable init things
+        SDL_Rect sourceRect = {0, 0, CHAR_WIDTH, CHAR_HEIGHT}; // The source rectangle for the text
+        SDL_Rect destRect = {0, 0, CHAR_WIDTH, CHAR_HEIGHT}; // The destination render rectangle
+        // Make a new texture of the needed size
+        int width = getMaximumLineLength(block);
+        width = width * CHAR_WIDTH + width - 1; // For space in between chars (1 for each char, minus one after last char)
+        int height = countLines(block);
+        height = height * CHAR_HEIGHT + height - 1; // For space in between rows (1 for each char, minus one after last row)
+        SDL_Texture* blockTexture = SDL_CreateTexture(sdl->renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, width, height);
+        // Setup the texture with all transparent
+        SDL_SetRenderTarget(sdl->renderer, blockTexture);
+        SDL_SetRenderDrawBlendMode(sdl->renderer, SDL_BLENDMODE_NONE);
+        SDL_SetTextureBlendMode(blockTexture, SDL_BLENDMODE_NONE);
+        SDL_SetRenderDrawColor(sdl->renderer, 0, 0, 0, 0);
+        SDL_RenderClear(sdl->renderer);
+        SDL_SetRenderDrawColor(sdl->renderer, 255, 255, 255, 255); // Set to white, used to draw boxes when the character is not known
+        // Iterate through all of the characters, drawing them to where they need to go
+        for (char c : block)
+        {
+            if (c == '\n')
+            {
+                // Newline things
+                destRect.x = 0;
+                destRect.y += CHAR_HEIGHT + 1;
+            }
+            else if (characterLocation.count(c) != 0) // If exists in map
+            {
+                // Update the source rect
+                sourceRect.x = characterLocation[c].x * CHAR_WIDTH;
+                sourceRect.y = characterLocation[c].y * CHAR_HEIGHT;
+                // Write to destination
+                SDL_RenderCopy(sdl->renderer, font, &sourceRect, &destRect);
+                // Move the destRect
+                destRect.x += CHAR_WIDTH + 1;
+            }
+            else if (c == ' ') // Character is a space
+            {
+                destRect.x += CHAR_WIDTH + 1;
+            }
+            /*else if (c != ' ') // Character is not known, and not just a space
+            {
+                // Draw a mystery box
+                SDL_RenderDrawRect(sdl->renderer, &destRect);
+                // Move the destRect
+                destRect.x += CHAR_WIDTH + 1;
+            }*/
+        }
+        // Cleanup and return
+        SDL_SetRenderTarget(sdl->renderer, nullptr);
+        SDL_SetRenderDrawBlendMode(sdl->renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureBlendMode(blockTexture, SDL_BLENDMODE_BLEND);
+        return blockTexture;
+
+        /*/// OLD CODE, recursive and slow
+        return nullptr;
 
         // Go through a string until a newline character is encountered
         // Use writeLine to get a texture of the line
@@ -327,14 +448,22 @@ namespace SDL_Text
                     int newHeight = masterRect.h + 1 + newTextRect.h; // +1 for a space in between the two
                     int newWidth = std::max(masterRect.w, newTextRect.w); // Finds the widest
                     SDL_Texture* newBigTexture = SDL_CreateTexture(sdl->renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, newWidth, newHeight);
+                    SDL_SetRenderTarget(sdl->renderer, newBigTexture);
+                    // Make explicitly all transparent to fix beraking on some gpu / monitor setups
+                    SDL_SetRenderDrawBlendMode(sdl->renderer, SDL_BLENDMODE_NONE);
+                    SDL_SetTextureBlendMode(newBigTexture, SDL_BLENDMODE_NONE);
+                    SDL_SetRenderDrawColor(sdl->renderer, 0, 0, 0, 0);
+                    SDL_Rect fillRect = {0, 0, newWidth, newHeight};
+                    SDL_RenderFillRect(sdl->renderer, &fillRect);
+                    SDL_SetRenderDrawBlendMode(sdl->renderer, SDL_BLENDMODE_BLEND);
+                    SDL_SetTextureBlendMode(newBigTexture, SDL_BLENDMODE_BLEND);
 
                     // Copy the two textures over
-                    SDL_SetRenderTarget(sdl->renderer, newBigTexture);
                     // Master texture
-                    SDL_SetTextureBlendMode(masterTexture, SDL_BLENDMODE_BLEND);
+                    SDL_SetTextureBlendMode(masterTexture, SDL_BLENDMODE_NONE);
                     SDL_RenderCopy(sdl->renderer, masterTexture, NULL, &masterRect);
                     // New line texture
-                    SDL_SetTextureBlendMode(newLineTexture, SDL_BLENDMODE_BLEND);
+                    SDL_SetTextureBlendMode(newLineTexture, SDL_BLENDMODE_NONE);
                     newTextRect.y = masterRect.h + 1; // Making sure everything lines up :)
                     SDL_RenderCopy(sdl->renderer, newLineTexture, NULL, &newTextRect);
                     // Reset
@@ -355,7 +484,9 @@ namespace SDL_Text
             }
         }
 
-        return masterTexture;
+        //SDL_SetTextureBlendMode(newLineTexture, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureBlendMode(masterTexture, SDL_BLENDMODE_BLEND);
+        return masterTexture;*/
     }
 }
 
