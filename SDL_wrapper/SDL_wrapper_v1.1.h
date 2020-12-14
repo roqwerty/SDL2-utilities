@@ -7,9 +7,11 @@
 //#include <SDL_image.h>
 #include <string>
 
-/// VERSION 1.0
+/// VERSION 1.11
 /*
 Changelog:
+    -1.11-
+        Made all functions inline to appease the .h file format ideals
     -1.1-
         Added relevant error messages when a loaded texture/surface cannot be found
         Added toggleFullscreen() function
@@ -52,18 +54,18 @@ public:
     int fullscreenWidth; // The width of the screen when fullscreen. Used for positioning things
     int fullscreenHeight; // ^^^
     // Functions
-    SDL(int width = 1280, int height = 800); // Constructor with default arguments
-    virtual ~SDL();
-    void clear(); // clears the screen
-    void update(); // updates the screen (use SDL_RenderCopy in between)
-    SDL_Texture* loadTexture(std::string filepath); // Loads the given filepath as an optimized texture
-    SDL_Surface* loadSurface(std::string filepath); // Loads and returns a surface from a filepath
-    SDL_Texture* newBlankTexture(int width, int height); // Creates and returns a new, optimized, blank texture of the given size
-    SDL_Texture* multiplyTextureSize(SDL_Texture* sourceTexture, int scale, bool destructive = false); // Returns a new texture, scaled by the given constant
-    void FPSinit(int framesPerSecond); // Starts the FPS submodule and caps framerate at a given number
-    void FPSlog(); // Pauses the game until a given framerate is reached
-    void toggleFullscreen(); // Toggles fullscreen of this SDL
-    void saveTextureToFile(std::string filepath, SDL_Texture* texture); // Saves the given texture to file as a PNG
+    inline SDL(int width = 1280, int height = 800); // Constructor with default arguments
+    inline virtual ~SDL();
+    inline void clear(); // clears the screen
+    inline void update(); // updates the screen (use SDL_RenderCopy in between)
+    inline SDL_Texture* loadTexture(std::string filepath); // Loads the given filepath as an optimized texture
+    inline SDL_Surface* loadSurface(std::string filepath); // Loads and returns a surface from a filepath
+    inline SDL_Texture* newBlankTexture(int width, int height); // Creates and returns a new, optimized, blank texture of the given size
+    inline SDL_Texture* multiplyTextureSize(SDL_Texture* sourceTexture, int scale, bool destructive = false); // Returns a new texture, scaled by the given constant
+    inline void FPSinit(int framesPerSecond); // Starts the FPS submodule and caps framerate at a given number
+    inline void FPSlog(); // Pauses the game until a given framerate is reached
+    inline void toggleFullscreen(); // Toggles fullscreen of this SDL
+    inline void saveTextureToFile(std::string filepath, SDL_Texture* texture); // Saves the given texture to file as a PNG
     //SDL_Texture* mergeTexture(SDL_Texture* t1, int t1_pos[2], SDL_Texture* t2, int t2_pos[2]); // Merges both textures onto a 32x32 texture to return
 };
 
@@ -120,7 +122,7 @@ SDL_Surface* SDL::loadSurface(std::string filepath)
     return nullptr;
 }
 /// NOTE This function is here twice so you can use it without an SDL instance...
-SDL_Surface* loadSurface(std::string filepath)
+inline SDL_Surface* loadSurface(std::string filepath)
 {
     //Load image at specified path
     SDL_Surface* loadedSurface = IMG_Load(filepath.c_str());
@@ -270,7 +272,7 @@ SDL_Texture* mergeTexture(SDL_Texture* t1, int[2] t1_pos, SDL_Texture* t2, int[2
 
 /// Functions below can be used without an SDL instance ///
 
-Uint32 getPixel(SDL_Surface *surface, int x, int y)
+inline Uint32 getPixel(SDL_Surface *surface, int x, int y)
 {
     int bpp = surface->format->BytesPerPixel;
     // Here p is the address to the pixel we want to retrieve
