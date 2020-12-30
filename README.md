@@ -1,5 +1,5 @@
 # SDL2-utilities
-A small collection of personally useful SDL2 libraries.
+A small collection of quality-of-life SDL2 libraries.
 
 # File List
 
