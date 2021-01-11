@@ -22,6 +22,11 @@ abcdefghijklmnopqrstuvwxyz
 /// VERSION 0.5
 /*
 Changelog:
+    -0.6-
+        Added functions for colored text and passage support! (These do not have any sort of error checking and will just break if misused)
+            SDL_Texture* writeLineColor(const std::string& line, char tokenizer = '#') - Same as writeLine, also allows changing of color halfway through. See function for details
+            SDL_Texture* writeBlockColor (const std::string& block, char tokenizer = '#') - Same as writeBlock, but also has color support. Keeps color between lines
+            int getMaximumLineLengthWithColorToken(const std::string& block, char token = '#') - utility function, ignores "#FF00FF" sections when counting length
     -0.5-
         Made everything use SDL_Points for, well, points. Removes dependency on old file
         Made writeLine and writeBlock pass strings by reference, because it's better memory management
@@ -241,7 +246,7 @@ public:
 namespace SDL_Text
 {
     /// Variables
-    std::string fontpath = "data/monogram.png";
+    std::string fontpath = "assets/monogram.png";
     SDL_Texture* font = nullptr;
     // Uses the popular and open-source monogram font as a base
     const int CHAR_HEIGHT = 9;
@@ -281,6 +286,36 @@ namespace SDL_Text
             {
                 if (current > longest) {longest = current;}
                 current = 0;
+            }
+            else
+            {
+                current++;
+            }
+        }
+        if (current > longest) {longest = current;}
+        return longest;
+    }
+
+    int getMaximumLineLengthWithColorToken(const std::string& block, char token = '#')
+    {
+        // Returns the length of the longest line in the block of text. Counts spaces and special characters
+        // If a token character is seen, will skip that token and the next 6 characters (exactly as needed for color functions)
+        //  This way, things like "White #FF0000Red" will read a correct visible length of 9
+        // Does not do any form of error checking. Do your own, please.
+
+        int longest = 0;
+        int current = 0;
+        for (char c : block)
+        {
+            if (c == '\n')
+            {
+                if (current > longest) {longest = current;}
+                current = 0;
+            }
+            else if (c == token)
+            {
+                // Just subtract 6 from the count (-7 + 1), ends up doing everything okay anyway
+                current -= 6;
             }
             else
             {
@@ -487,6 +522,155 @@ namespace SDL_Text
         //SDL_SetTextureBlendMode(newLineTexture, SDL_BLENDMODE_BLEND);
         SDL_SetTextureBlendMode(masterTexture, SDL_BLENDMODE_BLEND);
         return masterTexture;*/
+    }
+
+    SDL_Texture* writeLineColor(const std::string& line, char tokenizer = '#')
+    {
+        // All functionality of writeLine, but can also change the color of text within a line
+        // Color is changed by adding a "#FF00FF" section before text that needs to be changed to color #FF00FF
+        // e.g. "White#FF0000Red#FFFFFFWhite" will print the text the expected colors, but with no space between words...
+        // Tokenizer can also be changed to something user-specified, but color is always 6-digit hexadecimal
+        // No error checking within this function. Please do your own.
+
+        // The current colors for the passage of text
+        uint8_t r = 255;
+        uint8_t g = 255;
+        uint8_t b = 255;
+
+        // Source and destination rectangles
+        SDL_Rect sourceRect = {0, 0, CHAR_WIDTH, CHAR_HEIGHT};
+        SDL_Rect destRect = {0, 0, CHAR_WIDTH, CHAR_HEIGHT};
+        // Make the initial texture of the right size and set target ready to render
+        int width = line.length() * CHAR_WIDTH + line.length() - 1; // For space in between chars (1 for each char, minus one after last char)
+        SDL_Texture* lineTexture = SDL_CreateTexture(sdl->renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, width, CHAR_HEIGHT);
+        SDL_SetRenderTarget(sdl->renderer, lineTexture);
+        SDL_SetRenderDrawBlendMode(sdl->renderer, SDL_BLENDMODE_NONE);
+        SDL_SetTextureBlendMode(lineTexture, SDL_BLENDMODE_NONE);
+        // Make explicitly all transparent to fix breaking on some gpu / monitor setups
+        SDL_SetRenderDrawColor(sdl->renderer, 0, 0, 0, 0);
+        SDL_Rect fullRect = {0, 0, width, CHAR_HEIGHT};
+        SDL_RenderFillRect(sdl->renderer, &fullRect); // Fills the entire texture with transparent
+
+        // Iterate through the letters, writing to texture
+        for (int i = 0; i < line.length(); i++)
+        {
+            if (line[i] == tokenizer) // Is the beginning of a color section
+            {
+                // Determine the correct color
+                r = std::stoi(line.substr(i+1, 2), nullptr, 16);
+                g = std::stoi(line.substr(i+3, 2), nullptr, 16);
+                b = std::stoi(line.substr(i+5, 2), nullptr, 16);
+
+                // Modulate the source texture
+                SDL_SetTextureColorMod(font, r, g, b);
+
+                // Advance i as needed to the next index of actual text
+                i += 6;
+            }
+            else // Is just a regular character
+            {
+                //destRect.x = CHAR_WIDTH * i + i; // Does not account for skipped characters
+
+                if (characterLocation.find(line[i]) != characterLocation.end()) // If exists in the map
+                {
+                    // Update the source rect
+                    sourceRect.x = characterLocation[line[i]].x * CHAR_WIDTH;
+                    sourceRect.y = characterLocation[line[i]].y * CHAR_HEIGHT;
+                    // Write to destination
+                    SDL_RenderCopy(sdl->renderer, font, &sourceRect, &destRect);
+                } // All unknown characters are treated like spaces!
+                
+                destRect.x += CHAR_WIDTH + 1; // Update the destination rect, accounting for any skipped characters
+            }
+        }
+
+        // Cleanup and return
+        SDL_SetTextureColorMod(font, 255, 255, 255); // Reset the source texture to all white
+        SDL_SetRenderTarget(sdl->renderer, NULL);
+        SDL_SetRenderDrawBlendMode(sdl->renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureBlendMode(lineTexture, SDL_BLENDMODE_BLEND);
+        return lineTexture;
+    }
+
+    SDL_Texture* writeBlockColor (const std::string& block, char tokenizer = '#')
+    {
+        // Writes a block of text a single line at a time.
+        // Uses the newline '\n' character to separate lines
+        // Also has color support. Color carries over between lines. See writeLineColor for more details
+        // Does not have error checking! Please do your own!
+
+        // Color setup
+        uint8_t r = 255;
+        uint8_t g = 255;
+        uint8_t b = 255;
+
+        // Variable init things
+        SDL_Rect sourceRect = {0, 0, CHAR_WIDTH, CHAR_HEIGHT}; // The source rectangle for the text
+        SDL_Rect destRect = {0, 0, CHAR_WIDTH, CHAR_HEIGHT}; // The destination render rectangle
+        // Make a new texture of the needed size
+        int width = getMaximumLineLengthWithColorToken(block, tokenizer);
+        width = width * CHAR_WIDTH + width - 1; // For space in between chars (1 for each char, minus one after last char)
+        int height = countLines(block);
+        height = height * CHAR_HEIGHT + height - 1; // For space in between rows (1 for each char, minus one after last row)
+        SDL_Texture* blockTexture = SDL_CreateTexture(sdl->renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, width, height);
+        // Setup the texture with all transparent
+        SDL_SetRenderTarget(sdl->renderer, blockTexture);
+        SDL_SetRenderDrawBlendMode(sdl->renderer, SDL_BLENDMODE_NONE);
+        SDL_SetTextureBlendMode(blockTexture, SDL_BLENDMODE_NONE);
+        SDL_SetRenderDrawColor(sdl->renderer, 0, 0, 0, 0);
+        SDL_RenderClear(sdl->renderer);
+        SDL_SetRenderDrawColor(sdl->renderer, 255, 255, 255, 255); // Set to white, used to draw boxes when the character is not known
+        // Iterate through all of the characters, drawing them to where they need to go
+        //for (char c : block) {}
+        for (int i = 0; i < block.length(); i++)
+        {
+            if (block[i] == '\n')
+            {
+                // Newline things
+                destRect.x = 0;
+                destRect.y += CHAR_HEIGHT + 1;
+            }
+            else if (block[i] == tokenizer) // Beginning of color passage
+            {
+                // Determine the correct color
+                r = std::stoi(block.substr(i+1, 2), nullptr, 16);
+                g = std::stoi(block.substr(i+3, 2), nullptr, 16);
+                b = std::stoi(block.substr(i+5, 2), nullptr, 16);
+
+                // Modulate the source texture
+                SDL_SetTextureColorMod(font, r, g, b);
+
+                // Advance i as needed to the next index of actual text
+                i += 6;
+            }
+            else if (characterLocation.count(block[i]) != 0) // If exists in map
+            {
+                // Update the source rect
+                sourceRect.x = characterLocation[block[i]].x * CHAR_WIDTH;
+                sourceRect.y = characterLocation[block[i]].y * CHAR_HEIGHT;
+                // Write to destination
+                SDL_RenderCopy(sdl->renderer, font, &sourceRect, &destRect);
+                // Move the destRect
+                destRect.x += CHAR_WIDTH + 1;
+            }
+            else if (block[i] == ' ') // Character is a space
+            {
+                destRect.x += CHAR_WIDTH + 1;
+            }
+            /*else if (c != ' ') // Character is not known, and not just a space
+            {
+                // Draw a mystery box
+                SDL_RenderDrawRect(sdl->renderer, &destRect);
+                // Move the destRect
+                destRect.x += CHAR_WIDTH + 1;
+            }*/
+        }
+        // Cleanup and return
+        SDL_SetTextureColorMod(font, 255, 255, 255); // Reset the source texture to all white
+        SDL_SetRenderTarget(sdl->renderer, nullptr);
+        SDL_SetRenderDrawBlendMode(sdl->renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureBlendMode(blockTexture, SDL_BLENDMODE_BLEND);
+        return blockTexture;
     }
 }
 
