@@ -6,10 +6,14 @@
 #include <SDL2/SDL_image.h>
 //#include <SDL_image.h>
 #include <string>
+#include <math.h> // Only really used in the ellipse function
 
 /// VERSION 1.11
 /*
 Changelog:
+    -1.12-
+        Added SDL_DrawCircle(SDL_Renderer * renderer, int32_t centreX, int32_t centreY, int32_t radius) function (not original, credit above function)
+        Added SDL_DrawEllipse(SDL_Renderer* r, int x0, int y0, int radiusX, int radiusY) function (not original, credit above function)
     -1.11-
         Made all functions inline to appease the .h file format ideals
     -1.1-
@@ -76,7 +80,7 @@ SDL::SDL(int width, int height)
     WIDTH = width;
     HEIGHT = height;
     //Create window
-    window = SDL_CreateWindow("Ex Gaea", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
+    window = SDL_CreateWindow("House of Cards", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
     //surface = SDL_GetWindowSurface(window);
@@ -309,6 +313,92 @@ inline Uint32 getPixel(SDL_Surface *surface, int x, int y)
         */
 }
 
+// Circle drawing function ( credit: https://stackoverflow.com/questions/38334081/howto-draw-circles-arcs-and-vector-graphics-in-sdl )
+inline void SDL_DrawCircle(SDL_Renderer * renderer, int32_t centreX, int32_t centreY, int32_t radius)
+{
+   const int32_t diameter = (radius * 2);
 
+   int32_t x = (radius - 1);
+   int32_t y = 0;
+   int32_t tx = 1;
+   int32_t ty = 1;
+   int32_t error = (tx - diameter);
+
+   while (x >= y)
+   {
+      //  Each of the following renders an octant of the circle
+      SDL_RenderDrawPoint(renderer, centreX + x, centreY - y);
+      SDL_RenderDrawPoint(renderer, centreX + x, centreY + y);
+      SDL_RenderDrawPoint(renderer, centreX - x, centreY - y);
+      SDL_RenderDrawPoint(renderer, centreX - x, centreY + y);
+      SDL_RenderDrawPoint(renderer, centreX + y, centreY - x);
+      SDL_RenderDrawPoint(renderer, centreX + y, centreY + x);
+      SDL_RenderDrawPoint(renderer, centreX - y, centreY - x);
+      SDL_RenderDrawPoint(renderer, centreX - y, centreY + x);
+
+      if (error <= 0)
+      {
+         ++y;
+         error += ty;
+         ty += 2;
+      }
+
+      if (error > 0)
+      {
+         --x;
+         tx += 2;
+         error += (tx - diameter);
+      }
+   }
+}
+
+// Ellipse drawing function ( credit: https://stackoverflow.com/questions/38334081/howto-draw-circles-arcs-and-vector-graphics-in-sdl )
+inline void SDL_DrawEllipse(SDL_Renderer* r, int x0, int y0, int radiusX, int radiusY)
+{
+    float pi  = 3.14159265358979323846264338327950288419716939937510;
+    float pih = pi / 2.0; //half of pi
+
+    //drew  28 lines with   4x4  circle with precision of 150 0ms
+    //drew 132 lines with  25x14 circle with precision of 150 0ms
+    //drew 152 lines with 100x50 circle with precision of 150 3ms
+    const int prec = 27; // precision value; value of 1 will draw a diamond, 27 makes pretty smooth circles.
+    float theta = 0;     // angle that will be increased each loop
+
+    //starting point
+    int x  = (float)radiusX * cos(theta);//start point
+    int y  = (float)radiusY * sin(theta);//start point
+    int x1 = x;
+    int y1 = y;
+
+    //repeat until theta >= 90;
+    float step = pih/(float)prec; // amount to add to theta each time (degrees)
+    for(theta=step;  theta <= pih;  theta+=step)//step through only a 90 arc (1 quadrant)
+    {
+        //get new point location
+        x1 = (float)radiusX * cosf(theta) + 0.5; //new point (+.5 is a quick rounding method)
+        y1 = (float)radiusY * sinf(theta) + 0.5; //new point (+.5 is a quick rounding method)
+
+        //draw line from previous point to new point, ONLY if point incremented
+        if( (x != x1) || (y != y1) )//only draw if coordinate changed
+        {
+            SDL_RenderDrawLine(r, x0 + x, y0 - y,    x0 + x1, y0 - y1 );//quadrant TR
+            SDL_RenderDrawLine(r, x0 - x, y0 - y,    x0 - x1, y0 - y1 );//quadrant TL
+            SDL_RenderDrawLine(r, x0 - x, y0 + y,    x0 - x1, y0 + y1 );//quadrant BL
+            SDL_RenderDrawLine(r, x0 + x, y0 + y,    x0 + x1, y0 + y1 );//quadrant BR
+        }
+        //save previous points
+        x = x1;//save new previous point
+        y = y1;//save new previous point
+    }
+    //arc did not finish because of rounding, so finish the arc
+    if(x!=0)
+    {
+        x=0;
+        SDL_RenderDrawLine(r, x0 + x, y0 - y,    x0 + x1, y0 - y1 );//quadrant TR
+        SDL_RenderDrawLine(r, x0 - x, y0 - y,    x0 - x1, y0 - y1 );//quadrant TL
+        SDL_RenderDrawLine(r, x0 - x, y0 + y,    x0 - x1, y0 + y1 );//quadrant BL
+        SDL_RenderDrawLine(r, x0 + x, y0 + y,    x0 + x1, y0 + y1 );//quadrant BR
+    }
+}
 
 #endif // SDL_WRAPPER_H_INCLUDED
