@@ -11,6 +11,8 @@
 /// VERSION 1.11
 /*
 Changelog:
+    -1.13-
+        Added FPSlog(float& FPS) function: Same as FPSlog(), but stores the current FPS into the passed variable
     -1.12-
         Added SDL_DrawCircle(SDL_Renderer * renderer, int32_t centreX, int32_t centreY, int32_t radius) function (not original, credit above function)
         Added SDL_DrawEllipse(SDL_Renderer* r, int x0, int y0, int radiusX, int radiusY) function (not original, credit above function)
@@ -68,6 +70,7 @@ public:
     inline SDL_Texture* multiplyTextureSize(SDL_Texture* sourceTexture, int scale, bool destructive = false); // Returns a new texture, scaled by the given constant
     inline void FPSinit(int framesPerSecond); // Starts the FPS submodule and caps framerate at a given number
     inline void FPSlog(); // Pauses the game until a given framerate is reached
+    inline void FPSlog(float& FPS); // ^ plus stores FPS into passed variable
     inline void toggleFullscreen(); // Toggles fullscreen of this SDL
     inline void saveTextureToFile(std::string filepath, SDL_Texture* texture); // Saves the given texture to file as a PNG
     //SDL_Texture* mergeTexture(SDL_Texture* t1, int t1_pos[2], SDL_Texture* t2, int t2_pos[2]); // Merges both textures onto a 32x32 texture to return
@@ -80,7 +83,7 @@ SDL::SDL(int width, int height)
     WIDTH = width;
     HEIGHT = height;
     //Create window
-    window = SDL_CreateWindow("House of Cards", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
+    window = SDL_CreateWindow("FPS_Test", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
     //surface = SDL_GetWindowSurface(window);
@@ -212,6 +215,25 @@ void SDL::FPSlog()
         //lastTick %= 1000000;
     }
     // Now has actually waited the correct amount of time
+    //std::cout << (1000.0)/(SDL_GetTicks()-lastTick) << std::endl; // Print FPS to console
+    lastTick = SDL_GetTicks();
+}
+
+void SDL::FPSlog(float& FPS)
+{
+    // This version stores the FPS for use elsewhere
+
+    // Cap the game to a given framerate (wait until the given msPerFrame is reached, then log the new ms count)
+    // Also handles resetting after a given number of ticks so C++ doesn't explode
+
+    // Wait until the given frame is equal to the amount waited
+    while ((lastTick + msPerFrame) > SDL_GetTicks())//((lastTick + msPerFrame) % 1000000 < (SDL_GetTicks()) % 1000000)
+    {
+        // Literally does nothing but wait and reset counters
+        //lastTick %= 1000000;
+    }
+    // Now has actually waited the correct amount of time
+    FPS = 1000.0 / (SDL_GetTicks() - lastTick); // Store the FPS for later use elsewhere
     lastTick = SDL_GetTicks();
 }
 
