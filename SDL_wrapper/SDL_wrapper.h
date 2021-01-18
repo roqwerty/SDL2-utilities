@@ -10,15 +10,16 @@
 
 /*
 Changelog:
-    -1.14-
+    -1.2-
         SDL constructor changed to SDL(std::string title, int width = 1280, int height = 800). This allows passing of dynamically, but WILL break older versions if ported directly.
             File itself renamed to SDL_wrapper.h to make this breakage more apparent, and to remove versioning from title
-    -1.13-
+        Version control now uses numbers that make sense
+    -1.1.3-
         Added FPSlog(float& FPS) function: Same as FPSlog(), but stores the current FPS into the passed variable
-    -1.12-
+    -1.1.2-
         Added SDL_DrawCircle(SDL_Renderer * renderer, int32_t centreX, int32_t centreY, int32_t radius) function (not original, credit above function)
         Added SDL_DrawEllipse(SDL_Renderer* r, int x0, int y0, int radiusX, int radiusY) function (not original, credit above function)
-    -1.11-
+    -1.1.1-
         Made all functions inline to appease the .h file format ideals
     -1.1-
         Added relevant error messages when a loaded texture/surface cannot be found
