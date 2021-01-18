@@ -3,7 +3,7 @@
 
 #include <SDL2/SDL.h> //For SDL...
 #include <map> // For maps (dictionaries)
-#include "SDL_wrapper_v1.1.h" // For loading / using optimized textures
+#include "SDL_wrapper.h" // For loading / using optimized textures
 //#include "Universals.h" // For various things, including points
 
 /*
@@ -24,6 +24,8 @@ abcdefghijklmnopqrstuvwxyz
 Changelog:
     -Planned-
         Add bold and italics support in the same way colors are supported
+    -0.71-
+        Update for compatibility with new SDL_wrapper.h (1.14)
     -0.7-
         writeLine, writeBlock, writeLineColor, & writeBlockColor now preserve the original render target of the calling function instead of resetting it to default
         Added functions for texture-wide bold and italics (these also preserve render target)
