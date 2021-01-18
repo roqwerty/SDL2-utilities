@@ -22,9 +22,16 @@ abcdefghijklmnopqrstuvwxyz
 /// VERSION 0.5
 /*
 Changelog:
+    -Planned-
+        Add bold and italics support in the same way colors are supported
+    -0.7-
+        writeLine, writeBlock, writeLineColor, & writeBlockColor now preserve the original render target of the calling function instead of resetting it to default
+        Added functions for texture-wide bold and italics (these also preserve render target)
+            SDL_Texture* bold(SDL_Texture* source, bool destructive = true) - Bolds the texture (1 width -> 2 width). If destructive, destroys the source texture for easy assignment
+            SDL_Texture* italic(SDL_Texture* source, bool destructive = true) - Italics the texture (3 right, 4 stay, 3 left). If destructive, destroys the source texture for easy assignment
     -0.6-
         Added functions for colored text and passage support! (These do not have any sort of error checking and will just break if misused)
-            SDL_Texture* writeLineColor(const std::string& line, char tokenizer = '#') - Same as writeLine, also allows changing of color halfway through. See function for details
+            SDL_Texture* writeLineColor(const std::string& line, char tokenizer = '#') - Same as writeLine, also allows changing of color with hex halfway through. See function for details
             SDL_Texture* writeBlockColor (const std::string& block, char tokenizer = '#') - Same as writeBlock, but also has color support. Keeps color between lines
             int getMaximumLineLengthWithColorToken(const std::string& block, char token = '#') - utility function, ignores "#FF00FF" sections when counting length
     -0.5-
@@ -326,9 +333,64 @@ namespace SDL_Text
         return longest;
     }
 
+    SDL_Texture* bold(SDL_Texture* source, bool destructive = true)
+    {
+        // Returns the bold version of the given text texture. If destructive, destroys old texture
+        SDL_Rect oldRect = {0, 0, 0, 0};
+        SDL_QueryTexture(source, nullptr, nullptr, &oldRect.w, &oldRect.h);
+        SDL_Texture* newTexture = sdl->newBlankTexture(oldRect.w + 1, oldRect.h);
+        SDL_SetTextureBlendMode(newTexture, SDL_BLENDMODE_BLEND);
+        SDL_Texture* originalTarget = SDL_GetRenderTarget(sdl->renderer);
+        SDL_SetRenderTarget(sdl->renderer, newTexture);
+        SDL_RenderCopy(sdl->renderer, source, &oldRect, &oldRect);
+        SDL_Rect newRect = {1, 0, oldRect.w, oldRect.h};
+        SDL_RenderCopy(sdl->renderer, source, &oldRect, &newRect);
+        SDL_SetRenderTarget(sdl->renderer, originalTarget);
+        if (destructive) {SDL_DestroyTexture(source);}
+        return newTexture;
+    }
+
+    SDL_Texture* italic(SDL_Texture* source, bool destructive = true)
+    {
+        // Returns an italic version of the passed texture. If destructive, destroys source texture
+        // Top 3 pixels: right, Middle 4: stay, Bottom 3: left
+        SDL_Rect oldRect = {0, 0, 0, 0};
+        SDL_QueryTexture(source, nullptr, nullptr, &oldRect.w, &oldRect.h);
+        SDL_Texture* newTexture = sdl->newBlankTexture(oldRect.w + 2, oldRect.h);
+        SDL_SetTextureBlendMode(newTexture, SDL_BLENDMODE_BLEND);
+        SDL_Texture* originalTarget = SDL_GetRenderTarget(sdl->renderer);
+        SDL_SetRenderTarget(sdl->renderer, newTexture);
+        
+        // Render things
+        for (int yoffset = 0; yoffset < oldRect.h; yoffset += 10)
+        {
+            SDL_Rect sourceRect = {0, yoffset, oldRect.w, 3};
+            SDL_Rect destRect = {2, yoffset, oldRect.w, 3};
+            SDL_RenderCopy(sdl->renderer, source, &sourceRect, &destRect);
+            sourceRect.y += sourceRect.h;
+            sourceRect.h = 4;
+            destRect.y += destRect.h;
+            destRect.h = 4;
+            destRect.x--;
+            SDL_RenderCopy(sdl->renderer, source, &sourceRect, &destRect);
+            sourceRect.y += sourceRect.h;
+            sourceRect.h = 3;
+            destRect.y += destRect.h;
+            destRect.h = 3;
+            destRect.x--;
+            SDL_RenderCopy(sdl->renderer, source, &sourceRect, &destRect);
+        }
+
+        SDL_SetRenderTarget(sdl->renderer, originalTarget);
+        if (destructive) {SDL_DestroyTexture(source);}
+        return newTexture;
+    }
+
     SDL_Texture* writeLine (const std::string& line)
     {
         // Turns text into a texture. Also adds a pixel of space in between characters
+        // Original target saving
+        SDL_Texture* originalTarget = SDL_GetRenderTarget(sdl->renderer);
         // Source and destination rectangles
         SDL_Rect sourceRect;
         sourceRect.w = CHAR_WIDTH;
@@ -364,7 +426,7 @@ namespace SDL_Text
         }
 
         // Cleanup and return
-        SDL_SetRenderTarget(sdl->renderer, NULL);
+        SDL_SetRenderTarget(sdl->renderer, originalTarget);
         SDL_SetRenderDrawBlendMode(sdl->renderer, SDL_BLENDMODE_BLEND);
         SDL_SetTextureBlendMode(lineTexture, SDL_BLENDMODE_BLEND);
         return lineTexture;
@@ -379,6 +441,8 @@ namespace SDL_Text
         // Variable init things
         SDL_Rect sourceRect = {0, 0, CHAR_WIDTH, CHAR_HEIGHT}; // The source rectangle for the text
         SDL_Rect destRect = {0, 0, CHAR_WIDTH, CHAR_HEIGHT}; // The destination render rectangle
+        // Original target saving
+        SDL_Texture* originalTarget = SDL_GetRenderTarget(sdl->renderer);
         // Make a new texture of the needed size
         int width = getMaximumLineLength(block);
         width = width * CHAR_WIDTH + width - 1; // For space in between chars (1 for each char, minus one after last char)
@@ -424,7 +488,7 @@ namespace SDL_Text
             }*/
         }
         // Cleanup and return
-        SDL_SetRenderTarget(sdl->renderer, nullptr);
+        SDL_SetRenderTarget(sdl->renderer, originalTarget);
         SDL_SetRenderDrawBlendMode(sdl->renderer, SDL_BLENDMODE_BLEND);
         SDL_SetTextureBlendMode(blockTexture, SDL_BLENDMODE_BLEND);
         return blockTexture;
@@ -540,6 +604,8 @@ namespace SDL_Text
         // Source and destination rectangles
         SDL_Rect sourceRect = {0, 0, CHAR_WIDTH, CHAR_HEIGHT};
         SDL_Rect destRect = {0, 0, CHAR_WIDTH, CHAR_HEIGHT};
+        // Original target saving
+        SDL_Texture* originalTarget = SDL_GetRenderTarget(sdl->renderer);
         // Make the initial texture of the right size and set target ready to render
         int width = line.length() * CHAR_WIDTH + line.length() - 1; // For space in between chars (1 for each char, minus one after last char)
         SDL_Texture* lineTexture = SDL_CreateTexture(sdl->renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, width, CHAR_HEIGHT);
@@ -586,7 +652,7 @@ namespace SDL_Text
 
         // Cleanup and return
         SDL_SetTextureColorMod(font, 255, 255, 255); // Reset the source texture to all white
-        SDL_SetRenderTarget(sdl->renderer, NULL);
+        SDL_SetRenderTarget(sdl->renderer, originalTarget);
         SDL_SetRenderDrawBlendMode(sdl->renderer, SDL_BLENDMODE_BLEND);
         SDL_SetTextureBlendMode(lineTexture, SDL_BLENDMODE_BLEND);
         return lineTexture;
@@ -607,6 +673,8 @@ namespace SDL_Text
         // Variable init things
         SDL_Rect sourceRect = {0, 0, CHAR_WIDTH, CHAR_HEIGHT}; // The source rectangle for the text
         SDL_Rect destRect = {0, 0, CHAR_WIDTH, CHAR_HEIGHT}; // The destination render rectangle
+        // Original target saving
+        SDL_Texture* originalTarget = SDL_GetRenderTarget(sdl->renderer);
         // Make a new texture of the needed size
         int width = getMaximumLineLengthWithColorToken(block, tokenizer);
         width = width * CHAR_WIDTH + width - 1; // For space in between chars (1 for each char, minus one after last char)
@@ -667,7 +735,7 @@ namespace SDL_Text
         }
         // Cleanup and return
         SDL_SetTextureColorMod(font, 255, 255, 255); // Reset the source texture to all white
-        SDL_SetRenderTarget(sdl->renderer, nullptr);
+        SDL_SetRenderTarget(sdl->renderer, originalTarget);
         SDL_SetRenderDrawBlendMode(sdl->renderer, SDL_BLENDMODE_BLEND);
         SDL_SetTextureBlendMode(blockTexture, SDL_BLENDMODE_BLEND);
         return blockTexture;
