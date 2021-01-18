@@ -24,19 +24,21 @@ abcdefghijklmnopqrstuvwxyz
 Changelog:
     -Planned-
         Add bold and italics support in the same way colors are supported
-    -0.71-
+    -1.2.1-
         Update for compatibility with new SDL_wrapper.h (1.14)
-    -0.7-
+        The fontpath is now specified dynamically when calling the new function: void init(SDL* newSDL, std::string pathToMonogram)!
+        Redid old versioning system so that the numbers make more sense
+    -1.2-
         writeLine, writeBlock, writeLineColor, & writeBlockColor now preserve the original render target of the calling function instead of resetting it to default
         Added functions for texture-wide bold and italics (these also preserve render target)
             SDL_Texture* bold(SDL_Texture* source, bool destructive = true) - Bolds the texture (1 width -> 2 width). If destructive, destroys the source texture for easy assignment
             SDL_Texture* italic(SDL_Texture* source, bool destructive = true) - Italics the texture (3 right, 4 stay, 3 left). If destructive, destroys the source texture for easy assignment
-    -0.6-
+    -1.1-
         Added functions for colored text and passage support! (These do not have any sort of error checking and will just break if misused)
             SDL_Texture* writeLineColor(const std::string& line, char tokenizer = '#') - Same as writeLine, also allows changing of color with hex halfway through. See function for details
             SDL_Texture* writeBlockColor (const std::string& block, char tokenizer = '#') - Same as writeBlock, but also has color support. Keeps color between lines
             int getMaximumLineLengthWithColorToken(const std::string& block, char token = '#') - utility function, ignores "#FF00FF" sections when counting length
-    -0.5-
+    -1.0-
         Made everything use SDL_Points for, well, points. Removes dependency on old file
         Made writeLine and writeBlock pass strings by reference, because it's better memory management
         writeBlock is now no longer recursive and MUCH faster. Still not super 60FPS fast with large texts, but should be fine for occasional calls (i.e. not every frame)
@@ -255,7 +257,7 @@ public:
 namespace SDL_Text
 {
     /// Variables
-    std::string fontpath = "assets/monogram.png";
+    std::string fontpath = "";//"monogram.png";
     SDL_Texture* font = nullptr;
     // Uses the popular and open-source monogram font as a base
     const int CHAR_HEIGHT = 9;
@@ -266,9 +268,10 @@ namespace SDL_Text
 
     /// Functions
 
-    void init(SDL* newSDL)
+    void init(SDL* newSDL, std::string pathToMonogram)
     {
         // Is slightly better form to initialize needed SDL instance
+        fontpath = pathToMonogram;
         sdl = newSDL;
         font = sdl->loadTexture(fontpath);
     }
