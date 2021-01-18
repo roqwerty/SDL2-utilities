@@ -8,7 +8,6 @@
 #include <string>
 #include <math.h> // Only really used in the ellipse function
 
-/// VERSION 1.11
 /*
 Changelog:
     -1.14-
