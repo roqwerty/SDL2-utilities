@@ -6,10 +6,13 @@
 #include <SDL2/SDL_image.h>
 //#include <SDL_image.h>
 #include <string>
+#include <iostream> // For errors and things
 #include <math.h> // Only really used in the ellipse function
 
 /*
 Changelog:
+    -1.3-
+        Added bool screenshot(std::string filepath) function: saves a screenshot AS PNG to the given filepath. Returns if saved correctly
     -1.2-
         SDL constructor changed to SDL(std::string title, int width = 1280, int height = 800). This allows passing of dynamically, but WILL break older versions if ported directly.
             File itself renamed to SDL_wrapper.h to make this breakage more apparent, and to remove versioning from title
@@ -76,6 +79,7 @@ public:
     inline void FPSlog(float& FPS); // ^ plus stores FPS into passed variable
     inline void toggleFullscreen(); // Toggles fullscreen of this SDL
     inline void saveTextureToFile(std::string filepath, SDL_Texture* texture); // Saves the given texture to file as a PNG
+    inline bool screenshot(std::string filepath); // Saves a screenshot to file as a PNG
     //SDL_Texture* mergeTexture(SDL_Texture* t1, int t1_pos[2], SDL_Texture* t2, int t2_pos[2]); // Merges both textures onto a 32x32 texture to return
 };
 
@@ -281,6 +285,43 @@ void SDL::saveTextureToFile(std::string filepath, SDL_Texture* texture)
     IMG_SavePNG(surface, filepath.c_str());
     SDL_FreeSurface(surface);
     SDL_SetRenderTarget(renderer, target);
+}
+
+inline bool SDL::screenshot(std::string filepath)
+{
+    // Saves a screenshot as a PNG at the given filepath
+    // Code mostly from here: https://gist.github.com/malja/2193bd656fe50c203f264ce554919976
+    SDL_Rect _viewport; // Size
+    SDL_Surface *_surface = nullptr;
+    SDL_RenderGetViewport(renderer, &_viewport);
+    _surface = SDL_CreateRGBSurface( 0, _viewport.w, _viewport.h, 32, 0, 0, 0, 0 );
+    if (_surface == nullptr)
+    {
+        std::cout << "Cannot create SDL_Surface: " << SDL_GetError() << std::endl;
+        return false;
+    }
+    // Get data from SDL_Renderer and save them into surface
+    if ( SDL_RenderReadPixels( renderer, NULL, _surface->format->format, _surface->pixels, _surface->pitch ) != 0 )
+    {
+        std::cout << "Cannot read data from SDL_Renderer: " << SDL_GetError() << std::endl;
+        
+        // Don't forget to free memory
+        SDL_FreeSurface(_surface);
+        return false;
+    }
+    // Save screenshot as PNG file
+    if ( IMG_SavePNG( _surface, filepath.c_str() ) != 0 )
+    {
+        std::cout << "Cannot save PNG file: " << SDL_GetError() << std::endl;
+        
+        // Free memory
+        SDL_FreeSurface(_surface);
+        return false;
+    }
+    
+    // Free memory
+    SDL_FreeSurface(_surface);
+    return true;
 }
 
 /* Currently unused, opted to just blit all to the screen at different positions instead (allowed for actual subpixel movement)
