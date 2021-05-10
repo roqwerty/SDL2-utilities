@@ -8,9 +8,15 @@
 #include <string>
 #include <iostream> // For errors and things
 #include <math.h> // Only really used in the ellipse function
+#include <chrono> // For high-precision clocks
 
 /*
 Changelog:
+    -1.4-
+        Made the FPS control functions just... better. They now all use fractions of milliseconds instead of whole milliseconds (thanks std::chrono)
+            FPSInit() now takes a float as cappable FPS
+        Included a deltatime variable that holds elapsed fractional milliseconds between the last FPSlog() call and the call before that
+        Added FPSdelta() function that acts as an FPS log (updates deltatime), but does NOT wait for a certain FPS threshold (no framerate cap)
     -1.3-
         Added bool screenshot(std::string filepath) function: saves a screenshot AS PNG to the given filepath. Returns if saved correctly
     -1.2-
@@ -60,8 +66,12 @@ public:
     //SDL_Surface* surface;
     int WIDTH;
     int HEIGHT;
-    unsigned int msPerFrame = 0;
-    unsigned int lastTick = 0; // Used as a log point for FPS calculation
+    float msPerFrame = 0.0;
+    //float lastTick = 0.0; // Used as a log point for FPS calculation
+    float deltatime = 0.0; // The time difference (in milliseconds) between the last FPSlog call and the call before then
+    typedef std::chrono::high_resolution_clock clock;
+    typedef std::chrono::duration<float, std::milli> duration;
+    clock::time_point lastTick = clock::now(); // Used as a log point for FPS calculation
     bool windowed = true; // Whether this sdl instance is fullscreen or not
     int fullscreenWidth; // The width of the screen when fullscreen. Used for positioning things
     int fullscreenHeight; // ^^^
@@ -74,9 +84,10 @@ public:
     inline SDL_Surface* loadSurface(std::string filepath); // Loads and returns a surface from a filepath
     inline SDL_Texture* newBlankTexture(int width, int height); // Creates and returns a new, optimized, blank texture of the given size
     inline SDL_Texture* multiplyTextureSize(SDL_Texture* sourceTexture, int scale, bool destructive = false); // Returns a new texture, scaled by the given constant
-    inline void FPSinit(int framesPerSecond); // Starts the FPS submodule and caps framerate at a given number
+    inline void FPSinit(float framesPerSecond); // Starts the FPS submodule and caps framerate at a given number
     inline void FPSlog(); // Pauses the game until a given framerate is reached
     inline void FPSlog(float& FPS); // ^ plus stores FPS into passed variable
+    inline void FPSdelta(); // Updates the deltatime variable but does NOT cap framerate
     inline void toggleFullscreen(); // Toggles fullscreen of this SDL
     inline void saveTextureToFile(std::string filepath, SDL_Texture* texture); // Saves the given texture to file as a PNG
     inline bool screenshot(std::string filepath); // Saves a screenshot to file as a PNG
@@ -198,50 +209,45 @@ void SDL::update()
     SDL_RenderPresent(renderer);
 }
 
-void SDL::FPSinit(int framesPerSecond)
+void SDL::FPSinit(float framesPerSecond)
 {
     // Calculate the amount of msPerFrame based on the given max framerate
-    msPerFrame = 1000 / framesPerSecond;
-    if (framesPerSecond == 60)
-    {
-        msPerFrame = 17; // Rounding
-    }
+    msPerFrame = 1000.0 / framesPerSecond;
     // Log the first tick value
-    lastTick = SDL_GetTicks();
+    lastTick = clock::now();
 }
 
 void SDL::FPSlog()
 {
-    // Cap the game to a given framerate (wait until the given msPerFrame is reached, then log the new ms count)
-    // Also handles resetting after a given number of ticks so C++ doesn't explode
-
-    // Wait until the given frame is equal to the amount waited
-    while ((lastTick + msPerFrame) > SDL_GetTicks())//((lastTick + msPerFrame) % 1000000 < (SDL_GetTicks()) % 1000000)
-    {
-        // Literally does nothing but wait and reset counters
-        //lastTick %= 1000000;
+    // Cap the game to a given framerate (wait until the given msPerFrame is reached, then log the new ms count) using the more precise system
+    duration delta = clock::now() - lastTick;
+    while(delta.count() < msPerFrame) {
+        delta = clock::now() - lastTick;
     }
-    // Now has actually waited the correct amount of time
-    //std::cout << (1000.0)/(SDL_GetTicks()-lastTick) << std::endl; // Print FPS to console
-    lastTick = SDL_GetTicks();
+    deltatime = delta.count();
+    lastTick = clock::now();
 }
 
 void SDL::FPSlog(float& FPS)
 {
-    // This version stores the FPS for use elsewhere
+    // This version also stores the FPS for use elsewhere
 
-    // Cap the game to a given framerate (wait until the given msPerFrame is reached, then log the new ms count)
-    // Also handles resetting after a given number of ticks so C++ doesn't explode
-
-    // Wait until the given frame is equal to the amount waited
-    while ((lastTick + msPerFrame) > SDL_GetTicks())//((lastTick + msPerFrame) % 1000000 < (SDL_GetTicks()) % 1000000)
-    {
-        // Literally does nothing but wait and reset counters
-        //lastTick %= 1000000;
+    // Cap the game to a given framerate (wait until the given msPerFrame is reached, then log the new ms count) using the more precise system
+    duration delta = clock::now() - lastTick;
+    while(delta.count() < msPerFrame) {
+        delta = clock::now() - lastTick;
     }
-    // Now has actually waited the correct amount of time
-    FPS = 1000.0 / (SDL_GetTicks() - lastTick); // Store the FPS for later use elsewhere
-    lastTick = SDL_GetTicks();
+    deltatime = delta.count();
+    FPS = 1000.0 / deltatime;
+    lastTick = clock::now();
+}
+
+inline void SDL::FPSdelta()
+{
+    // Updates the deltatime variable but does NOT cap framerate
+    duration delta = clock::now() - lastTick;
+    deltatime = delta.count();
+    lastTick = clock::now();
 }
 
 void SDL::toggleFullscreen()
