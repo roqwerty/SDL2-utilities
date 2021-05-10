@@ -14,7 +14,7 @@
 Changelog:
     -1.4-
         Made the FPS control functions just... better. They now all use fractions of milliseconds instead of whole milliseconds (thanks std::chrono)
-            FPSInit() now takes a float as cappable FPS
+            FPSInit() now takes a double as cappable FPS
         Included a deltatime variable that holds elapsed fractional milliseconds between the last FPSlog() call and the call before that
         Added FPSdelta() function that acts as an FPS log (updates deltatime), but does NOT wait for a certain FPS threshold (no framerate cap)
     -1.3-
@@ -66,9 +66,9 @@ public:
     //SDL_Surface* surface;
     int WIDTH;
     int HEIGHT;
-    float msPerFrame = 0.0;
+    double msPerFrame = 0.0;
     //float lastTick = 0.0; // Used as a log point for FPS calculation
-    float deltatime = 0.0; // The time difference (in milliseconds) between the last FPSlog call and the call before then
+    double deltatime = 0.0; // The time difference (in milliseconds) between the last FPSlog call and the call before then
     typedef std::chrono::high_resolution_clock clock;
     typedef std::chrono::duration<float, std::milli> duration;
     clock::time_point lastTick = clock::now(); // Used as a log point for FPS calculation
@@ -84,9 +84,9 @@ public:
     inline SDL_Surface* loadSurface(std::string filepath); // Loads and returns a surface from a filepath
     inline SDL_Texture* newBlankTexture(int width, int height); // Creates and returns a new, optimized, blank texture of the given size
     inline SDL_Texture* multiplyTextureSize(SDL_Texture* sourceTexture, int scale, bool destructive = false); // Returns a new texture, scaled by the given constant
-    inline void FPSinit(float framesPerSecond); // Starts the FPS submodule and caps framerate at a given number
+    inline void FPSinit(double framesPerSecond); // Starts the FPS submodule and caps framerate at a given number
     inline void FPSlog(); // Pauses the game until a given framerate is reached
-    inline void FPSlog(float& FPS); // ^ plus stores FPS into passed variable
+    inline void FPSlog(double& FPS); // ^ plus stores FPS into passed variable
     inline void FPSdelta(); // Updates the deltatime variable but does NOT cap framerate
     inline void toggleFullscreen(); // Toggles fullscreen of this SDL
     inline void saveTextureToFile(std::string filepath, SDL_Texture* texture); // Saves the given texture to file as a PNG
@@ -209,7 +209,7 @@ void SDL::update()
     SDL_RenderPresent(renderer);
 }
 
-void SDL::FPSinit(float framesPerSecond)
+void SDL::FPSinit(double framesPerSecond)
 {
     // Calculate the amount of msPerFrame based on the given max framerate
     msPerFrame = 1000.0 / framesPerSecond;
@@ -228,7 +228,7 @@ void SDL::FPSlog()
     lastTick = clock::now();
 }
 
-void SDL::FPSlog(float& FPS)
+void SDL::FPSlog(double& FPS)
 {
     // This version also stores the FPS for use elsewhere
 
