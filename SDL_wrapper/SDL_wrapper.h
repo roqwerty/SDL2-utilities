@@ -12,6 +12,8 @@
 
 /*
 Changelog:
+    -1.5-
+        Added newAntialiasedTexture(int width, int height) that will allocate and return a blank texture with antialiasing enabled
     -1.4-
         Made the FPS control functions just... better. They now all use fractions of milliseconds instead of whole milliseconds (thanks std::chrono)
             FPSInit() now takes a double as cappable FPS
@@ -83,6 +85,7 @@ public:
     inline SDL_Texture* loadTexture(std::string filepath); // Loads the given filepath as an optimized texture
     inline SDL_Surface* loadSurface(std::string filepath); // Loads and returns a surface from a filepath
     inline SDL_Texture* newBlankTexture(int width, int height); // Creates and returns a new, optimized, blank texture of the given size
+    inline SDL_Texture* newAntialiasedTexture(int width, int height); // Creates and return a new, optimized, blank, antialiased texture of given size
     inline SDL_Texture* multiplyTextureSize(SDL_Texture* sourceTexture, int scale, bool destructive = false); // Returns a new texture, scaled by the given constant
     inline void FPSinit(double framesPerSecond); // Starts the FPS submodule and caps framerate at a given number
     inline void FPSlog(); // Pauses the game until a given framerate is reached
@@ -162,9 +165,17 @@ inline SDL_Surface* loadSurface(std::string filepath)
     return nullptr;
 }
 
-SDL_Texture* SDL::newBlankTexture(int width, int height)
+inline SDL_Texture* SDL::newBlankTexture(int width, int height)
 {
     return SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, width, height);
+}
+
+inline SDL_Texture* SDL::newAntialiasedTexture(int width, int height)
+{
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+    SDL_Texture* texture = newBlankTexture(width, height);
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+    return texture;
 }
 
 SDL_Texture* SDL::multiplyTextureSize(SDL_Texture* sourceTexture, int scale, bool destructive)
