@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SDL2/SDL_ttf.h>
+#include "Universals.h" // Should define an SDL instance with variable name "sdl"
 
 class SDL_TTF
 {
@@ -53,9 +54,7 @@ public:
         text = newText;
         SDL_DestroyTexture(texture);
         SDL_Surface* messageS = TTF_RenderText_Solid(font, text.c_str(), textColor);
-        renderMutex.lock();
         texture = SDL_CreateTextureFromSurface(sdl.renderer, messageS);
-        renderMutex.unlock();
         SDL_FreeSurface(messageS);
         SDL_QueryTexture(texture, nullptr, nullptr, &rect.w, &rect.h);
     }
