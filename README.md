@@ -15,4 +15,4 @@ This file creates basic classes for managing of text-based textures, as well as 
 
 ### CRT_filter
 This file creates the CRT namespace, housing a collection of visual filters for SDL2 textures to mimic various effects of a CRT monitor such as screen curvature, chromatic aberration, and scanlines.
->Currently, the CRT screen curvature / bending effect is ridiculously computationally intensive. As such, no stable release exists.
+>Currently, the CRT screen curvature / bending effect is ridiculously computationally intensive. As such, no stable release exists. For ideal CRT-bending effects, see my SDICL library for GPU-accelerated OpenCL textures within SDL2.
